@@ -11,11 +11,14 @@ Ideal for algorithmic trading experiments, AI finance projects, or learning ML i
 
 *Key tools: TensorFlow, Alpaca API, NewsAPI, yfinance, Optuna*  
 
+---
+
 # Netflix Clone
 
 [![Watch the demo](https://img.shields.io/badge/Watch-Demo_Video-red?style=for-the-badge&logo=asciinema)](https://files.catbox.moe/3ns1ls.mp4)
 
----  
+---
+
 **🚀 Try it out:** Clone, add API keys to `.env`, and run `python desi.py` (default: analyzes TSLA). Contributions welcome!
 
 ## Overview
@@ -176,14 +179,10 @@ pip install --upgrade pip
 **Alpaca API errors**: Verify your:
 - Paper trading account is activated
 - API keys are correctly set in `.env`
-```
-
----
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
 
 For questions or issues, please open an issue on the GitHub repository.
