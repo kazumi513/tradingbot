@@ -178,9 +178,7 @@ pip install --upgrade pip
 - API keys are correctly set in `.env`
 ```
 
-```markdown
 ---
-```
 
 ## License
 
