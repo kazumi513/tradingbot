@@ -31,27 +31,26 @@ This Python script implements a stock trading bot that combines LSTM neural netw
 - **Portfolio Analysis**: Monitors portfolio health and risk levels
 - **Automated Trading**: Executes trades through Alpaca's paper trading API
 
-```markdown
 ## 🛠 Installation
 
-1. **Clone the repository**:
+**1. Clone the repository:**
    ```bash
    git clone https://github.com/yourusername/stock-trading-bot.git
    cd stock-trading-bot
    ```
 
-2. **Set up a virtual environment**:
+**2. Set up a virtual environment**:
    ```bash
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Install dependencies**:
+**3. Install dependencies**:
    ```bash
    pip install numpy pandas yfinance tensorflow scikit-learn vaderSentiment requests matplotlib seaborn optuna alpaca-trade-api python-dotenv
    ```
 
-4. **Set up environment variables**:
+**4. Set up environment variables**:
    - Create a `.env` file in the project root
    - Add your API keys:
      ```
