@@ -9,7 +9,7 @@ A Python trading bot that combines **LSTM neural networks** for stock price pred
 
 Ideal for algorithmic trading experiments, AI finance projects, or learning ML in trading. **Paper trading only** – use at your own risk with real funds.  
 
-*Key Tech: TensorFlow, Alpaca API, NewsAPI, yfinance, Optuna*  
+*Key tools: TensorFlow, Alpaca API, NewsAPI, yfinance, Optuna*  
 
 ---  
 **🚀 Try it out:** Clone, add API keys to `.env`, and run `python desi.py` (default: analyzes TSLA). Contributions welcome!
