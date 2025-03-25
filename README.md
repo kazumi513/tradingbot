@@ -34,6 +34,41 @@ This Python script implements a stock trading bot that combines LSTM neural netw
 - **Portfolio Analysis**: Monitors portfolio health and risk levels
 - **Automated Trading**: Executes trades through Alpaca's paper trading API
 
+```markdown
+## 🛠 Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/stock-trading-bot.git
+   cd stock-trading-bot
+   ```
+
+2. **Set up a virtual environment**:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install numpy pandas yfinance tensorflow scikit-learn vaderSentiment requests matplotlib seaborn optuna alpaca-trade-api python-dotenv
+   ```
+
+4. **Set up environment variables**:
+   - Create a `.env` file in the project root
+   - Add your API keys:
+     ```
+     NEWS_API_KEY=your_newsapi_key_here
+     ALPACA_API_KEY=your_alpaca_key_here
+     ALPACA_SECRET_KEY=your_alpaca_secret_here
+     ```
+
+5. **Run the application**:
+   ```bash
+   python desi.py
+   ```
+```
+
 ## Prerequisites
 
 Before running the script, ensure you have:
@@ -128,6 +163,28 @@ You can modify these parameters in the script:
 3. Add backtesting functionality
 4. Support for multiple stocks and asset classes
 5. Improved error handling and logging
+
+```markdown
+## 🚨 Troubleshooting
+
+**CUDA errors**: If you encounter GPU-related errors:
+```bash
+export CUDA_VISIBLE_DEVICES="-1"  # Force CPU usage
+```
+
+**Missing dependencies**: Ensure pip is up to date:
+```bash
+pip install --upgrade pip
+```
+
+**Alpaca API errors**: Verify your:
+- Paper trading account is activated
+- API keys are correctly set in `.env`
+```
+
+```markdown
+---
+```
 
 ## License
 
