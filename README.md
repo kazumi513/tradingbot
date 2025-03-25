@@ -11,6 +11,13 @@ Ideal for algorithmic trading experiments, AI finance projects, or learning ML i
 
 *Key tools: TensorFlow, Alpaca API, NewsAPI, yfinance, Optuna*  
 
+# Netflix Clone
+
+<video width="100%" controls>
+  <source src="https://files.catbox.moe/k6uuo6.webm" type="video/webm">
+  Your browser does not support the video tag.
+</video>
+
 ---  
 **🚀 Try it out:** Clone, add API keys to `.env`, and run `python desi.py` (default: analyzes TSLA). Contributions welcome!
 
