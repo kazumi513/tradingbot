@@ -13,10 +13,7 @@ Ideal for algorithmic trading experiments, AI finance projects, or learning ML i
 
 # Netflix Clone
 
-<video width="100%" controls>
-  <source src="https://files.catbox.moe/k6uuo6.webm" type="video/webm">
-  Your browser does not support the video tag.
-</video>
+[![Watch the demo](https://img.shields.io/badge/Watch-Demo_Video-red?style=for-the-badge&logo=asciinema)](https://files.catbox.moe/3ns1ls.mp4)
 
 ---  
 **🚀 Try it out:** Clone, add API keys to `.env`, and run `python desi.py` (default: analyzes TSLA). Contributions welcome!
