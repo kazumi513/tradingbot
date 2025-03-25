@@ -1,5 +1,19 @@
 # Stock Trading Bot with LSTM and Sentiment Analysis
 
+A Python trading bot that combines **LSTM neural networks** for stock price prediction with **real-time sentiment analysis** from financial news. Uses **Alpaca API** for paper trading and **Yahoo Finance** for market data. Features:  
+
+📈 **LSTM Model** – Optimized with Optuna for price forecasting  
+📰 **News Sentiment Analysis** – VADER-powered market mood detection  
+⚖️ **Risk Assessment** – Volatility-based risk evaluation  
+💹 **Automated Trading** – Executes buy/sell orders via Alpaca  
+
+Ideal for algorithmic trading experiments, AI finance projects, or learning ML in trading. **Paper trading only** – use at your own risk with real funds.  
+
+*Key Tech: TensorFlow, Alpaca API, NewsAPI, yfinance, Optuna*  
+
+---  
+**🚀 Try it out:** Clone, add API keys to `.env`, and run `python desi.py` (default: analyzes TSLA). Contributions welcome!
+
 ## Overview
 
 This Python script implements a stock trading bot that combines LSTM neural networks for price prediction with sentiment analysis from financial news to make trading decisions. The bot uses Alpaca API for executing trades and Yahoo Finance for market data.
