@@ -1,218 +1,141 @@
-# Enhanced LSTM Model and Sentiment Analysis Script
-
 import os
-import time
-import requests
 import numpy as np
 import pandas as pd
-import logging
-from dotenv import load_dotenv
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
-from transformers import pipeline  # For sentiment analysis with BERT
-from alpaca_trade_api.rest import REST, TimeFrame
-from ta.momentum import RSIIndicator
-from ta.trend import SMAIndicator
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+import yfinance as yf
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from sklearn.preprocessing import MinMaxScaler
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import requests
+import matplotlib.pyplot as plt
+import seaborn as sns
+import optuna
+import alpaca_trade_api as tradeapi
+from tqdm import tqdm
+import time
 
-# Load environment variables
-load_dotenv()
-ALPACA_API_KEY = os.getenv("ALPCA_API_KEY")
-ALPACA_SECRET_KEY = os.getenv("ALPCA_SECRET_KEYS")
-ALPACA_BASE_URL = os.getenv("ALPCA_API_BASE_URL")
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+# 🔹 Force TensorFlow to use CPU (Fixes CUDA Errors)
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable oneDNN optimizations
 
-api = REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url=ALPACA_BASE_URL)
+# 🔹 Hardcoded Dummy API Keys (Replace with real ones in production)
+NEWS_API_KEY = "b50fe45c07784ffa937faf5fe426b62c"
+ALPACA_API_KEY = "PKR447NDRZNIBNP8553T"
+ALPACA_SECRET_KEY = "YKSqGYAIj12Omnqe5ZRAsrP7R9oDBH10v6jpxvMU"
 
-# Sentiment Analysis with BERT
-sentiment_pipeline = pipeline("sentiment-analysis")
+# 🔹 Alpaca API Setup
+alpaca_api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url="https://paper-api.alpaca.markets/")
 
-# Set up logging
-logging.basicConfig(filename='enhanced_trading_bot.log', level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+# 🔹 Load Sentiment Analysis Tool
+sentiment_analyzer = SentimentIntensityAnalyzer()
 
-# Stock universe (diversified)
-ticker_to_name = {
-    "AAPL": "Apple",
-    "MSFT": "Microsoft",
-    "JNJ": "Johnson & Johnson",
-    "JPM": "JPMorgan",
-    "XOM": "ExxonMobil",
-    "HD": "Home Depot",
-    "PG": "Procter & Gamble"
-}
+# 🔹 List of S&P 500 stocks with focus on requested companies
+SP500_TICKERS = [
+    # Technology
+    'META', 'NVDA', 'AMD', 'CRM', 'GOOGL', 'MSFT', 'ARM', 'AVGO', 'MSTR', 
+    'APP', 'AMZN', 'SHOP', 'COST', 'PYPL', 'COIN', 'HOOD', 'TSM', 'ASTL',
+    
+    # Financial Services
+    'JPM', 'BAC', 'NU', 
+    
+    # Consumer Discretionary
+    'WMT', 'ULTA', 'CVNA', 'LYFT', 'UBER', 'TSLA', 'DAL', 
+    
+    # Healthcare
+    'PFE', 'RPRX', 'WBA', 'HIMS', 
+    
+    # Energy
+    'CEG', 'SSL', 
+    
+    # Entertainment
+    'SPOT', 'RDDT', 'DUOL', 
+    
+    # Industrials
+    'STRL', 'G'
+]
 
-# Risk limits
-MAX_TRADES_PER_DAY = 5
-MAX_TRADES_PER_SECTOR = 2
-sectors = {
-    "AAPL": "Tech",
-    "MSFT": "Tech",
-    "JNJ": "Healthcare",
-    "JPM": "Finance",
-    "XOM": "Energy",
-    "HD": "Retail",
-    "PG": "Consumer"
-}
-sector_trade_count = {}
-trades_executed = 0
-open_positions = {}
-STOP_LOSS_THRESHOLD = -0.03  # -3%
-TAKE_PROFIT_THRESHOLD = 0.05  # +5%
-
-# --- Optimized Sentiment Analysis --- #
-def get_stock_sentiment(stock_name):
-    url = f"https://newsapi.org/v2/everything?q={stock_name}&language=en&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
+# 🔹 Fetch Market Sentiment from NewsAPI for specific stocks
+def get_market_sentiment(ticker=None):
+    """Fetch real-time financial news and analyze sentiment."""
+    query = "stock market" if ticker is None else f"{ticker} stock"
+    url = f"https://newsapi.org/v2/everything?q={query}&language=en&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
     try:
         response = requests.get(url)
         news_data = response.json()
-        headlines = [article["title"] for article in news_data.get("articles", [])]
-        if len(headlines) > 5:  # Ensure enough data is fetched
-            sentiment_scores = [sentiment_pipeline(h)[0]["score"] * (1 if sentiment_pipeline(h)[0]["label"] == "POSITIVE" else -1) for h in headlines]
-            return np.mean(sentiment_scores) if sentiment_scores else 0
+        if "articles" in news_data:
+            headlines = [article["title"] for article in news_data["articles"][:10]]
+            sentiment_scores = [sentiment_analyzer.polarity_scores(headline)["compound"] for headline in headlines]
+            return np.mean(sentiment_scores)
         else:
-            logging.warning(f"Not enough headlines for {stock_name} sentiment.")
-            return 0
+            return 0  # Neutral sentiment if API fails
     except Exception as e:
-        logging.error(f"Error fetching sentiment for {stock_name}: {e}")
-        return 0
+        print(f"⚠️ Error fetching news for {ticker if ticker else 'market'}: {e}")
+        return 0  # Neutral sentiment if there's an error
 
-# --- Technical Indicators --- #
-def apply_indicators(df):
-    df["RSI"] = RSIIndicator(close=df["close"], window=14).rsi()
-    df["SMA"] = SMAIndicator(close=df["close"], window=20).sma_indicator()
-    return df
-
-# --- Enhanced LSTM Model --- #
-def predict_trend(df):
-    data = df["close"].values.reshape(-1, 1)
-    scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(data)
-
-    X, y = [], []
-    sequence_length = 60  # Window size
-    for i in range(sequence_length, len(scaled_data)):
-        X.append(scaled_data[i - sequence_length:i])
-        y.append(scaled_data[i])
-    if not X:
-        return 0
-
-    X, y = np.array(X), np.array(y)
-    X = X.reshape(X.shape[0], X.shape[1], 1)
-
-    # Load or improve model
-    model_path = "enhanced_lstm_model.h5"
-    if os.path.exists(model_path):
-        model = load_model(model_path)
-    else:
-        model = Sequential([
-            LSTM(128, return_sequences=True, input_shape=(X.shape[1], 1)),  # Increased neurons
-            Dropout(0.3),  # Higher dropout for regularization
-            LSTM(128),
-            Dropout(0.3),
-            Dense(64, activation='relu'),
-            Dense(1)
-        ])
-        model.compile(optimizer='adam', loss='mean_squared_error')
-        model.fit(X, y, epochs=20, batch_size=64, verbose=0)  # Optimized training parameters
-        model.save(model_path)
-
-    last_60 = scaled_data[-sequence_length:].reshape(1, sequence_length, 1)
-    predicted = model.predict(last_60)
-    return predicted[0][0] - scaled_data[-1][0]  # Return delta
-
-# --- Data Fetching --- #
-def fetch_stock_data(ticker):
+# 🔹 Fetch Real-Time Stock Data
+def fetch_real_time_stock_data(ticker, interval="1m", period="7d"):
+    """Fetches live stock data for high-frequency trading."""
     try:
-        bars = api.get_bars(ticker, TimeFrame.Day, limit=100).df
-        return bars.reset_index()[["timestamp", "open", "high", "low", "close", "volume"]]
+        df = yf.download(ticker, interval=interval, period=period, auto_adjust=True)
+        if df.empty:
+            print(f"⚠️ No stock data available for {ticker}")
+            return None
+        df["Return"] = df["Close"].pct_change()
+        df.dropna(inplace=True)
+        return df
     except Exception as e:
-        logging.error(f"Error fetching data for {ticker}: {e}")
-        return pd.DataFrame()
+        print(f"⚠️ Error fetching data for {ticker}: {e}")
+        return None
 
-# --- Trade Execution --- #
+# 🔹 Execute Trade Using Alpaca API
 def execute_trade(ticker, action):
-    global trades_executed, sector_trade_count, open_positions
-
-    sector = sectors.get(ticker, "Other")
-    if trades_executed >= MAX_TRADES_PER_DAY:
-        logging.warning(f"Trade limit reached. Skipping {ticker}.")
-        return
-    if sector_trade_count.get(sector, 0) >= MAX_TRADES_PER_SECTOR:
-        logging.warning(f"Sector trade limit reached for {sector}. Skipping {ticker}.")
-        return
-
-    qty = 1
+    """Places a buy or sell order on Alpaca."""
     try:
-        api.submit_order(
-            symbol=ticker,
-            qty=qty,
-            side=action.lower(),
-            type="market",
+        alpaca_api.submit_order(
+            symbol=ticker, 
+            qty=1, 
+            side=action.lower(), 
+            type="market", 
             time_in_force="gtc"
         )
-        trades_executed += 1
-        sector_trade_count[sector] = sector_trade_count.get(sector, 0) + 1
-        open_positions[ticker] = {
-            "side": action.lower(),
-            "entry_price": api.get_latest_trade(ticker).price
-        }
-        logging.info(f"Executed {action} on {ticker} in {sector} sector.")
+        print(f"✅ Order placed: {action} 1 share of {ticker}")
     except Exception as e:
-        logging.error(f"Failed to execute trade for {ticker}: {e}")
+        print(f"⚠️ Failed to execute {action} order for {ticker}: {e}")
 
-# --- Auto-Close Logic --- #
-def monitor_positions():
-    for ticker, pos in open_positions.copy().items():
+# 🔹 Main Trading Function
+def run_trading_bot():
+    """Run the trading bot for all S&P 500 stocks."""
+    print("📈 Starting S&P 500 Trading Bot")
+    
+    # Get general market sentiment
+    market_sentiment = get_market_sentiment()
+    print(f"📊 Overall Market Sentiment Score: {market_sentiment:.2f}")
+    
+    for ticker in tqdm(SP500_TICKERS, desc="Processing Stocks"):
         try:
-            current_price = api.get_latest_trade(ticker).price
-            entry_price = pos["entry_price"]
-            side = pos["side"]
-            change = (current_price - entry_price) / entry_price
-
-            if side == "buy" and (change >= TAKE_PROFIT_THRESHOLD or change <= STOP_LOSS_THRESHOLD):
-                api.submit_order(symbol=ticker, qty=1, side="sell", type="market", time_in_force="gtc")
-                logging.info(f"Closed BUY {ticker} @ {current_price:.2f} | P/L: {change:.2%}")
-                open_positions.pop(ticker)
-            elif side == "sell" and (-change >= TAKE_PROFIT_THRESHOLD or -change <= STOP_LOSS_THRESHOLD):
-                api.submit_order(symbol=ticker, qty=1, side="buy", type="market", time_in_force="gtc")
-                logging.info(f"Closed SELL {ticker} @ {current_price:.2f} | P/L: {-change:.2%}")
-                open_positions.pop(ticker)
+            # Get stock-specific sentiment
+            stock_sentiment = get_market_sentiment(ticker)
+            combined_sentiment = (market_sentiment + stock_sentiment) / 2
+            
+            # Fetch stock data
+            df = fetch_real_time_stock_data(ticker)
+            if df is None:
+                continue
+                
+            # Simple trading decision based on sentiment
+            if combined_sentiment > 0.1:  # Positive sentiment threshold
+                execute_trade(ticker, "BUY")
+            elif combined_sentiment < -0.1:  # Negative sentiment threshold
+                execute_trade(ticker, "SELL")
+            
+            # Add delay to avoid rate limiting
+            time.sleep(1)
+            
         except Exception as e:
-            logging.error(f"Error monitoring position for {ticker}: {e}")
+            print(f"⚠️ Error processing {ticker}: {e}")
             continue
 
-# --- Main Logic --- #
-def main():
-    monitor_positions()
-    for ticker, name in ticker_to_name.items():
-        logging.info(f"\nProcessing {name} ({ticker})")
-
-        sentiment = get_stock_sentiment(name)
-        logging.info(f"Sentiment Score: {sentiment:.3f}")
-
-        df = fetch_stock_data(ticker)
-        if df.empty or len(df) < 65:
-            logging.warning(f"Insufficient data for {ticker}. Skipping.")
-            continue
-
-        df = apply_indicators(df)
-        rsi = df.iloc[-1]["RSI"]
-        sma = df.iloc[-1]["SMA"]
-        current_price = df.iloc[-1]["close"]
-
-        lstm_trend = predict_trend(df)
-        logging.info(f"LSTM Trend Delta: {lstm_trend:.4f}")
-        logging.info(f"RSI: {rsi:.2f}, SMA: {sma:.2f}, Price: {current_price:.2f}")
-
-        # Decision rules
-        if sentiment > 0.3 and lstm_trend > 0.01 and current_price > sma and rsi < 70:
-            execute_trade(ticker, "Buy")
-        elif sentiment < -0.3 and lstm_trend < -0.01 and current_price < sma and rsi > 30:
-            execute_trade(ticker, "Sell")
-        else:
-            logging.info("No strong signal. Skipping.")
-
+# 🔹 Run the trading bot
 if __name__ == "__main__":
-    main()
+    run_trading_bot()
