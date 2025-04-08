@@ -40,7 +40,7 @@ An automated trading bot that analyzes market sentiment and executes trades on S
 
 Run the trading bot:
 ```bash
-python desi.py
+python tradingscript.py
 ```
 
 The bot will:
